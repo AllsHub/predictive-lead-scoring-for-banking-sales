@@ -1,7 +1,9 @@
 -----
 # Predictive Lead Scoring for Banking Sales
 
-Repositori ini berisi model untuk memprediksi potensi nasabah deposito berjangka (*Term Deposit*). Service ini dibangun menggunakan **FastAPI**, **XGBoost** (Calibrated), dan **Docker**, siap untuk diintegrasikan dengan sistem Backend utama.
+Repositori ini berisi model untuk memprediksi potensi nasabah deposito berjangka (*Term Deposit*). Service ini dibangun menggunakan **FastAPI**, **XGBoost** (Calibrated), dan **Docker**, siap untuk diintegrasikan ke sistem Backend utama dengan arsitektur **Hybrid**.
+1.  **Batch Scoring:** Dataset historis yang sudah dinilai (Pre-scored CSV).
+2.  **Real-time API:** Microservice Docker untuk memprediksi input data baru/simulasi.
 
 ---
 
@@ -9,12 +11,28 @@ Repositori ini berisi model untuk memprediksi potensi nasabah deposito berjangka
 
 | File | Fungsi |
 | :--- | :--- |
+| `bank_data_scored.csv` | **Dataset Matang.** Data nasabah lama yang sudah memiliki kolom `score` dan `label_code`. |
 | `main.py` | **Entry Point API (Server).** Kode utama untuk endpoint `POST /predict`. |
 | `transformers.py` | Modul Feature Engineering custom (wajib ada agar model bisa berjalan). |
 | `train_model.py` | Skrip untuk melatih model & menghasilkan file `.pkl` (Arsip/Dokumentasi). |
 | `model_deposito_siap_pakai.pkl` | **Otak Model.** Model XGBoost yang sudah dilatih dan dikalibrasi. |
 | `Dockerfile` | Konfigurasi kontainer untuk deployment (Production Ready). |
 | `requirements.txt` | Daftar library Python yang dibutuhkan. |
+
+---
+
+## Strategi Eksekusi MVP (PENTING)
+
+Untuk performa website yang cepat, mohon ikuti alur eksekusi Hybrid ini:
+
+### 1. Data Historis (Dashboard Utama)
+Jangan gunakan API untuk menampilkan data nasabah yang sudah ada (40k+ rows). Gunakan file **`bank_data_scored.csv`**.
+* **Backend:** Import file CSV ini langsung ke Tabel Database (MySQL).
+* **Frontend:** Tampilkan data dari database. Fitur **Sorting** menggunakan kolom `score` (Descending), dan **Filtering** menggunakan kolom `label_code`.
+
+### 2. Simulasi Data Baru (Fitur Cek Nasabah)
+Gunakan **Docker API** hanya jika user ingin menginput data manual (form simulasi) di website.
+* **Flow:** User Input Form -> Backend -> **API (`POST /predict`)** -> Result.
 
 ---
 
@@ -26,7 +44,7 @@ Service ini sudah di-*containerize*. Tidak perlu setup environment Python manual
 Jalankan perintah berikut di terminal server:
 ```bash
 docker build -t ai-service .
-````
+```
 
 ### 2\. Run Container
 
@@ -107,7 +125,7 @@ Saat menerima response dari model, mohon simpan dua field ini ke Database utama:
 
 ### 2\. Untuk Frontend Engineering (UI/UX)
 
-Saya tidak mengirimkan kode warna (Hex code) dari API agar kalian memiliki kebebasan desain. Mohon petakan `label_code` ke visualisasi berikut (Saran):
+Ini tidak mengirimkan kode warna (Hex code) dari API agar memiliki kebebasan desain. Petakan `label_code` ke visualisasi berikut (Saran):
 
 | Output API (`label_code`) | Arti Statistik (Data Science) | Rekomendasi Visual |
 | :--- | :--- | :--- |
