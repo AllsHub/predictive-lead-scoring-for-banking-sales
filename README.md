@@ -102,11 +102,9 @@ Service akan mengembalikan **Skor Probabilitas** dan **Label Prioritas**.
 
 ```json
 {
-  "prediction": 0,
+  "prediction": 1,
   "score": 0.35,
-  "tier": "TIER_1",
   "label_code": "HIGH_PRIORITY",
-  "description": "Probability: 35.00%"
 }
 ```
 
