@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 import pandas as pd
 import joblib
@@ -82,6 +82,66 @@ def predict_deposit(data: CustomerData):
             "score": prob,          # Untuk sorting
             "label_code": label,    # Untuk pemetaan
         }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/predict-batch")
+async def predict_batch(file: UploadFile = File(...)):
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    # Check file type
+    if not (file.filename.endswith('.csv') or file.filename.endswith(('.xlsx', '.xls'))):
+        raise HTTPException(status_code=400, detail="File must be CSV or Excel (.csv, .xlsx, .xls)")
+    
+    try:
+        # Read file
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(file.file)
+        else:
+            df = pd.read_excel(file.file)
+        
+        # Rename columns to match model expectations
+        rename_map = {
+            'emp_var_rate': 'emp.var.rate',
+            'cons_price_idx': 'cons.price.idx',
+            'cons_conf_idx': 'cons.conf.idx',
+            'nr_employed': 'nr.employed'
+        }
+        df = df.rename(columns=rename_map)
+        
+        # Process each row
+        results = []
+        for idx, row in df.iterrows():
+            try:
+                df_input = pd.DataFrame([row.to_dict()])
+                prob = float(model.predict_proba(df_input)[0, 1])
+                
+                # Thresholds for prioritization
+                THRESH_TIER_1 = 0.2841  # Top 10% (High Priority)
+                THRESH_TIER_2 = 0.0685  # Top 30% (Medium Priority)
+                
+                if prob >= THRESH_TIER_1:
+                    label = "HIGH_PRIORITY"
+                elif prob >= THRESH_TIER_2:
+                    label = "MEDIUM_PRIORITY"
+                else:
+                    label = "STANDARD_PRIORITY"
+                
+                results.append({
+                    "row_index": idx,
+                    "prediction": 1 if prob >= THRESH_TIER_2 else 0,
+                    "score": prob,
+                    "label_code": label
+                })
+            except Exception as e:
+                results.append({
+                    "row_index": idx,
+                    "error": str(e)
+                })
+        
+        return {"results": results, "total_processed": len(results)}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
